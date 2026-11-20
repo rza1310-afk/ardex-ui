@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Installs the Android SDK and accepts licenses so AGP can download compileSdk 36.1.
+      - uses: android-actions/setup-android@v3
+
+      # The project ships no gradlew, so install the Gradle version it expects.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.3.1
+
+      # debug.keystore is gitignored; create the standard Android debug key if it's missing.
+      - name: Create debug keystore
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -keystore debug.keystore -storepass android \
+              -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aRDEX-UI-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
